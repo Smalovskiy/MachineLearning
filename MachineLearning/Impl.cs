@@ -34,7 +34,7 @@ namespace MachineLearning
             //Map the classifier over the test set
             //This wil return an array where index i is the classificatioon of the i-th vector
             //of the testSet
-            var predicted = UtilityProvider.MergeArrays(trainingSet, testSet)
+            var predicted = Utils.MergeArrays(trainingSet, testSet)
                             .Select(x => knn.Compute(x))
                             .ToArray();
 
@@ -43,7 +43,7 @@ namespace MachineLearning
             int negative = 1;
 
             //Create a new confusion matrix with the calculated parameters
-            ConfusionMatrix cmatrix = new ConfusionMatrix(predicted, UtilityProvider.MergeArrays(trainingOutput, expected), positive, negative);
+            ConfusionMatrix cmatrix = new ConfusionMatrix(predicted, Utils.MergeArrays(trainingOutput, expected), positive, negative);
             return cmatrix;
         }
 
@@ -105,8 +105,8 @@ namespace MachineLearning
             teacher.LearningRate = 0.1;
 
             //Enrich the dimensions of the vectors, padding 1 to the end
-            var richTraining = UtilityProvider.PaddDimension(trainingSet);
-            var richTesting = UtilityProvider.PaddDimension(testSet);
+            var richTraining = Utils.PaddDimension(trainingSet);
+            var richTesting = Utils.PaddDimension(testSet);
 
             //Training the network until the error is small enough
             //or 500 hundred iterations have been computed
@@ -349,7 +349,7 @@ namespace MachineLearning
             {
                 for (int z = 0; z < s; z++)
                 {
-                    double[][] rndata = UtilityProvider.RandomizeArray(data);
+                    double[][] rndata = Utils.RandomizeArray(data);
                     int Classes = 0;
                     for (int j = 0; j < rndata.Length - 1; ++j)
                     {

@@ -125,7 +125,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Algorithm\KNearestNeighboursRuntime.cs" />
+    <Compile Include="Algorithm\LeastSquaresRuntime.cs" />
+    <Compile Include="Algorithm\ParallelNeuralNetworkRuntime.cs" />
+    <Compile Include="Algorithm\PerceptronRuntime.cs" />
+    <Compile Include="Base\AlgorithmFinishedEventArgs.cs" />
     <Compile Include="Base\AlgorithmRuntime.cs" />
+    <Compile Include="Clustering\BsasArgs.cs" />
+    <Compile Include="Clustering\BSASFeatures.cs" />
+    <Compile Include="Clustering\BasicSequentialAlgorithmicScheme.cs" />
+    <Compile Include="Clustering\KMeansClustering.cs" />
     <Compile Include="Impl.cs">
       <SubType>Form</SubType>
     </Compile>

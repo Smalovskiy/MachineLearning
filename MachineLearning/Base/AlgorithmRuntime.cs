@@ -4,21 +4,30 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Accord.Statistics.Analysis;
+using AForge.Neuro;
 
 namespace MachineLearning.Base
 {
-    public class AlgorithmRuntime
+    public abstract class AlgorithmRuntime
     {
-        int k;
-        Double[][] trainingSet;
-        int[] trainingOutput;
-        public AlgorithmRuntime(int k, Double[][] trainingSet, int[] trainingOutput, Double[][] testSet, int[] expected)
-        {
+        protected const int POSITIVE = 0;
+        protected const int NEGATIVE = 1;
 
-        }
-        public ConfusionMatrix Execute()
+        public event EventHandler<AlgorithmFinishedEventArgs> Finished;
+        public void OnAlgorithmEnded(IEnumerable<ActivationNeuron> neurons, ConfusionMatrix matrix)
         {
-            return null;
+            var handler = Finished;
+            if (handler != null)
+            {
+                var e = new AlgorithmFinishedEventArgs()
+                {
+                    Neurons = neurons,
+                    Matrix = matrix
+                };
+                handler(this, e);
+            }
         }
+
+        public abstract ConfusionMatrix Execute();
     }
 }

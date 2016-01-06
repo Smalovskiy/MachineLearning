@@ -9,6 +9,10 @@ using Accord.Math;
 using Accord.Statistics.Analysis;
 using AForge;
 using AForge.Controls;
+using AForge.Neuro;
+using MachineLearning.Algorithm;
+using MachineLearning.Base;
+using MachineLearning.Clustering;
 using NN.Models;
 // NN.Models;
 //Using more sensible and convinient names
@@ -208,8 +212,8 @@ namespace MachineLearning
         private void ShowTrainingData()
         {
             //create data series from the vectors
-            Double[,] class1 = UtilityProvider.JaggedToMD(class_1);
-            Double[,] class2 = UtilityProvider.JaggedToMD(class_2);
+            Double[,] class1 = Utils.JaggedToMD(class_1);
+            Double[,] class2 = Utils.JaggedToMD(class_2);
             classCount = 2;
 
             //Compute the minimum and maximum numbers for the X axis
@@ -238,27 +242,19 @@ namespace MachineLearning
             //Spawn the host
             Task.Factory.StartNew(() =>
             {
-                SearchSolution();
+                SearchSolutionShim();
             });
         }
 
-        //This is the function that runs the demo application
-        //It handles the file loading the execution of the algorithms
-        //and the manipulation of the controls
-        private void SearchSolution()
+        private void SearchSolutionShim()
         {
             //Read the data from the files
-            Double[][] file1DataRaw = UtilityProvider.ReadMatrixFromFile(@"class_1.dat");
-            Double[][] file2DataRaw = UtilityProvider.ReadMatrixFromFile(@"class_2.dat");
+            Double[][] file1DataRaw = Utils.ReadMatrixFromFile(@"class_1.dat");
+            Double[][] file2DataRaw = Utils.ReadMatrixFromFile(@"class_2.dat");
 
-            ////Seriliase the matrix with protobuf
-            //PSSProvider.Serialise("ProtoMatrix", file1DataRaw);
-
-            //Double[][] protobufMatrix = PSSProvider.Deserialise("ProtoMatrix");
-            //Console.WriteLine(PSSProvider.ProviderID.ToString());
             //Chose 2 features
-            class_1 = UtilityProvider.ScaleDown(UtilityProvider.ChooseFeatures(file1DataRaw));
-            class_2 = UtilityProvider.ScaleDown(UtilityProvider.ChooseFeatures(file2DataRaw));
+            class_1 = Utils.ScaleDown(Utils.ChooseFeatures(file1DataRaw));
+            class_2 = Utils.ScaleDown(Utils.ChooseFeatures(file2DataRaw));
 
             //Fill the charts with the data
             ShowTrainingData();
@@ -268,25 +264,168 @@ namespace MachineLearning
             ConfusionMatrix[,] statistics = new ConfusionMatrix[4, 5];
             //Merge the two data sets
             //and run kmeans
-            RunKMeans(UtilityProvider.MergeArrays(file1DataRaw, file2DataRaw));
 
-            this.Invoke(new Action(() => progressBar1.Value = 0));
-            this.Invoke(new Action(() => progressBar1.Step *= 2));
+            var kmeans = new KMeansClustering(Utils.MergeArrays(file1DataRaw, file2DataRaw), (int)iterationsNum.Value, (double)thetaStepNum.Value);
+            var idx = kmeans.Classify();
+            ClustersTextUpdate(idx.Distinct().Length.ToString());
+
+            Invoke(new Action(() => progressBar1.Value = 0));
+            Invoke(new Action(() => progressBar1.Step *= 2));
             //Partition 5 times and run the algorithms
             for (int i = 0; i < 5; ++i)
             {
 
                 this.Invoke(new Action(() => progressBar1.PerformStep()));
                 //Partition its class to training and testing set
-                var partitions = new DataPartition[] { UtilityProvider.Partition(class_1), UtilityProvider.Partition(class_2) };
+                var partitions = new DataPartition[] { Utils.Partition(class_1), Utils.Partition(class_2) };
 
                 //Create the training data
-                var trainingPair = UtilityProvider.CreateDataPair(partitions[0].Item1, partitions[1].Item1);
+                var trainingPair = Utils.CreateDataPair(partitions[0].Item1, partitions[1].Item1);
                 var trainingSet = trainingPair.Item1;
                 var trainingOutput = trainingPair.Item2;
 
                 //Create the testing data
-                var testingPair = UtilityProvider.CreateDataPair(partitions[0].Item2, partitions[1].Item2);
+                var testingPair = Utils.CreateDataPair(partitions[0].Item2, partitions[1].Item2);
+                var testingSet = testingPair.Item1;
+                var testingOutput = testingPair.Item2;
+                //Some functions need the training output to be a vector of doubles
+                var doubleTO = trainingOutput
+                    .Select(x => new[] { Convert.ToDouble(x) })
+                    .ToArray();
+
+                for (int k = 1; k < 3; ++k)
+                {
+                    var nn = new KNearestNeighboursRuntime(k, trainingSet, trainingOutput, testingSet, testingOutput);
+
+                    if (BestKNN == null)
+                    {
+
+                        BestKNN = nn.Execute();
+                    }
+                    else
+                    {
+                        var iter = nn.Execute();
+                        if (iter.Accuracy > BestKNN.Accuracy)
+                            BestKNN = iter;
+                    }
+                }
+
+                var perceptron = new PerceptronRuntime(trainingSet, doubleTO, testingSet, testingOutput);
+                perceptron.Finished += perceptron_Finished;
+
+                var leastSquare = new LeastSquaresRuntime(Utils.JaggedToMD(trainingSet), Utils.JaggedToMD(doubleTO), Utils.JaggedToMD(testingSet), testingOutput);
+                var neuralNetwork = new ParallelNeuralNetworkRuntime(trainingSet, doubleTO, testingSet, testingOutput);
+
+                neuralNetwork.Finished += neuralNetwork_Finished;
+                //Compute the confusion matrices for the four classifiers                 
+                statistics[0, i] = perceptron.Execute();
+                statistics[1, i] = leastSquare.Execute();
+                //Use the most accurate K of KNN
+                statistics[2, i] = BestKNN;
+                statistics[3, i] = neuralNetwork.Execute();
+                //RunAnotherNN(trainingSet, doubleTO, testingSet, testingOutput);
+            }
+
+            //Update the classifier lines in the charts
+            //with the most accurate of the 5 iterations
+            ChartUpdate(perceChart.Name, "classifier", MostAccuratePerceptron.Item1);
+            ChartUpdate(nnChart.Name, "classifier1", MostAccurateNN.Item1);
+
+            //Process the array with the Confusion Matrices
+            //and update the list view
+            var processed = Utils.ProcessStatistics(statistics);
+            UpdateStatisticsListView(processed);
+        }
+
+        void neuralNetwork_Finished(object sender, AlgorithmFinishedEventArgs e)
+        {
+            var classifiers = new List<Double[,]>();
+            foreach (var neuron in e.Neurons)
+            {
+                double k = (neuron.Weights[1] != 0) ? (-neuron.Weights[0] / neuron.Weights[1]) : 0;
+                double b = (neuron.Weights[1] != 0) ? (-((ActivationNeuron)neuron).Threshold / neuron.Weights[1]) : 0;
+                double[,] classifier = new double[2, 2] 
+                {
+                    { nnChart.RangeX.Min, nnChart.RangeX.Min * k + b },
+                    { nnChart.RangeX.Max, nnChart.RangeX.Max * k + b }
+                };
+                classifiers.Add(classifier);
+            }
+
+            var bestCM = e.Matrix;
+
+            if (MostAccurateNN == null || bestCM.Accuracy > MostAccurateNN.Item2.Accuracy)
+                MostAccurateNN = Tuple.Create(classifiers, bestCM);
+        }
+
+
+        void perceptron_Finished(object sender, AlgorithmFinishedEventArgs e)
+        {
+            var neuron = e.Neurons.First();
+            // Calculate the coordinates of the classifier
+            double k = (neuron.Weights[1] != 0) ? (-neuron.Weights[0] / neuron.Weights[1]) : 0;
+            double b = (neuron.Weights[1] != 0) ? (-((ActivationNeuron)neuron).Threshold / neuron.Weights[1]) : 0;
+
+            // Create the line and feed it to the data series
+            double[,] classifier = new double[2, 2]
+            {
+               { perceChart.RangeX.Min, perceChart.RangeX.Min * k + b},
+               { perceChart.RangeX.Max, perceChart.RangeX.Max * k + b}
+            };
+
+            var cmatrix = e.Matrix;
+            //Update the most accurate classification
+            if (MostAccuratePerceptron == null || cmatrix.Accuracy > MostAccuratePerceptron.Item2.Accuracy)
+            {
+                MostAccuratePerceptron = Tuple.Create(classifier, cmatrix);
+            }
+        }
+
+        //This is the function that runs the demo application
+        //It handles the file loading the execution of the algorithms
+        //and the manipulation of the controls
+        private void SearchSolution()
+        {
+            //Read the data from the files
+            Double[][] file1DataRaw = Utils.ReadMatrixFromFile(@"class_1.dat");
+            Double[][] file2DataRaw = Utils.ReadMatrixFromFile(@"class_2.dat");
+
+            ////Seriliase the matrix with protobuf
+            //PSSProvider.Serialise("ProtoMatrix", file1DataRaw);
+
+            //Double[][] protobufMatrix = PSSProvider.Deserialise("ProtoMatrix");
+            //Console.WriteLine(PSSProvider.ProviderID.ToString());
+            //Chose 2 features
+            class_1 = Utils.ScaleDown(Utils.ChooseFeatures(file1DataRaw));
+            class_2 = Utils.ScaleDown(Utils.ChooseFeatures(file2DataRaw));
+
+            //Fill the charts with the data
+            ShowTrainingData();
+            //Clear the list view
+            ClearListView();
+            //Fill it with the confusion matrix for each algorithm per iteration
+            ConfusionMatrix[,] statistics = new ConfusionMatrix[4, 5];
+            //Merge the two data sets
+            //and run kmeans
+            RunKMeans(Utils.MergeArrays(file1DataRaw, file2DataRaw));
+
+            Invoke(new Action(() => progressBar1.Value = 0));
+            Invoke(new Action(() => progressBar1.Step *= 2));
+            //Partition 5 times and run the algorithms
+            for (int i = 0; i < 5; ++i)
+            {
+
+                this.Invoke(new Action(() => progressBar1.PerformStep()));
+                //Partition its class to training and testing set
+                var partitions = new DataPartition[] { Utils.Partition(class_1), Utils.Partition(class_2) };
+
+                //Create the training data
+                var trainingPair = Utils.CreateDataPair(partitions[0].Item1, partitions[1].Item1);
+                var trainingSet = trainingPair.Item1;
+                var trainingOutput = trainingPair.Item2;
+
+                //Create the testing data
+                var testingPair = Utils.CreateDataPair(partitions[0].Item2, partitions[1].Item2);
                 var testingSet = testingPair.Item1;
                 var testingOutput = testingPair.Item2;
                 //Some functions need the training output to be a vector of doubles
@@ -310,7 +449,7 @@ namespace MachineLearning
 
                 //Compute the confusion matrices for the four classifiers                 
                 statistics[0, i] = RunPerceptron(trainingSet, doubleTO, testingSet, testingOutput);
-                statistics[1, i] = RunLS(UtilityProvider.JaggedToMD(trainingSet), UtilityProvider.JaggedToMD(doubleTO), UtilityProvider.JaggedToMD(testingSet), testingOutput);
+                statistics[1, i] = RunLS(Utils.JaggedToMD(trainingSet), Utils.JaggedToMD(doubleTO), Utils.JaggedToMD(testingSet), testingOutput);
                 //Use the most accurate K of KNN
                 statistics[2, i] = BestKNN;
                 statistics[3, i] = ParallelRunNN(trainingSet, doubleTO, testingSet, testingOutput);
@@ -324,7 +463,7 @@ namespace MachineLearning
 
             //Process the array with the Confusion Matrices
             //and update the list view
-            var processed = UtilityProvider.ProcessStatistics(statistics);
+            var processed = Utils.ProcessStatistics(statistics);
             UpdateStatisticsListView(processed);
         }
 

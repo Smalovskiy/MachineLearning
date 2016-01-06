@@ -20,7 +20,7 @@ using DataPartition = System.Tuple<System.Double[][], System.Double[][]>;
 
 namespace MachineLearning
 {
-    public static class UtilityProvider
+    public static class Utils
     {
         #region Utilites
         //Utility function that parses the data from the file
