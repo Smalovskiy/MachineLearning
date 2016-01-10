@@ -1,26 +1,15 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Threading;
-using System.Windows.Forms;
-using Accord.MachineLearning;
 using Accord.Math;
 using Accord.Statistics.Analysis;
-using Accord.Statistics.Models.Regression.Linear;
-using AForge;
-using AForge.Controls;
-using AForge.Neuro;
-using AForge.Neuro.Learning;
-using NN.Models;
-//Using more sensible and convinient names
+
 using DataPair = System.Tuple<System.Double[][], System.Int32[]>;
 using DataPartition = System.Tuple<System.Double[][], System.Double[][]>;
 
-namespace MachineLearning
+namespace MachineLearning.Base
 {
-    public static class Utils
+    public static class AlgorithmHelpers
     {
         #region Utilites
         //Utility function that parses the data from the file
@@ -90,8 +79,8 @@ namespace MachineLearning
         public static DataPartition Partition(double[][] array)
         {
             //getting random indexes and putting them on a list
-            Random random = new Random(Guid.NewGuid().GetHashCode());
-            List<int> indices = new List<int>();
+            var random = new Random(Guid.NewGuid().GetHashCode());
+            var indices = new List<int>();
             while (indices.Count < array.Length)
             {
                 int index = random.Next(0, (array.Length));
@@ -101,8 +90,8 @@ namespace MachineLearning
                 }
             }
             //shuffling the array using the random indexes and put them in a list 
-            double[] imarray = new double[20];
-            List<double[]> rnglist = new List<double[]>();
+            var imarray = new double[20];
+            var rnglist = new List<double[]>();
             for (int i = 0; i < indices.Count; i++)
             {
                 int randomIndex = indices[i];
@@ -207,6 +196,7 @@ namespace MachineLearning
             return res;
         }
 
+        // It scales down (yeah I know) 
         public static Double[][] ScaleDown(Double[][] array)
         {
             return array

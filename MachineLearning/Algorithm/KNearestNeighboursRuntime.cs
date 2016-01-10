@@ -37,13 +37,13 @@ namespace MachineLearning.Algorithm
             //Map the classifier over the test set
             //This wil return an array where index i is the classificatioon of the i-th vector
             //of the testSet
-            var predicted = Utils
+            var predicted = AlgorithmHelpers
                 .MergeArrays(trainingSet, testSet)
                 .Select(x => knn.Compute(x))
                 .ToArray();
 
             //Create a new confusion matrix with the calculated parameters
-            var cmatrix = new ConfusionMatrix(predicted, Utils.MergeArrays(trainingOutput, expected), POSITIVE, NEGATIVE);
+            var cmatrix = new ConfusionMatrix(predicted, AlgorithmHelpers.MergeArrays(trainingOutput, expected), POSITIVE, NEGATIVE);
             return cmatrix;
         }
     }

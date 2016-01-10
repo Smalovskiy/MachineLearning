@@ -88,7 +88,6 @@
             this.perceChart.RangeY = ((AForge.Range)(resources.GetObject("perceChart.RangeY")));
             this.perceChart.Size = new System.Drawing.Size(523, 349);
             this.perceChart.TabIndex = 2;
-            this.perceChart.Text = "chart1";
             // 
             // groupBox1
             // 
