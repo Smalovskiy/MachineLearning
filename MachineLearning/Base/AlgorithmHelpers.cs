@@ -6,6 +6,7 @@ using Accord.Statistics.Analysis;
 
 using DataPair = System.Tuple<System.Double[][], System.Int32[]>;
 using DataPartition = System.Tuple<System.Double[][], System.Double[][]>;
+using System.Globalization;
 
 namespace MachineLearning.Base
 {
@@ -21,7 +22,7 @@ namespace MachineLearning.Base
                                 .Select(line =>
                                         line.Split(' ') //Split the lines to words
                                         .Where(chr => !(chr.Equals(""))) //Filter the "" strings
-                                        .Select(word => Double.Parse(word)) //Parse its string to the real number it represents 
+                                        .Select(word => Double.Parse(word, new CultureInfo("en-us"))) //Parse its string to the real number it represents 
                                         .ToArray())
                                 .ToArray();
             return dataClass;
